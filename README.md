@@ -9,34 +9,24 @@ mod.json              mod metadata + settings
 CMakeLists.txt        build script (C++23, Geode v5)
 logo.png              mod list logo (336x336)
 about.md / changelog.md
-resources/            pause-menu button icon (SD/HD/UHD)
+resources/            pause-menu button icon
 src/main.cpp          hooks: PlayLayer, PauseLayer, toggle keybind
 src/Runner.*          rule engine: percent checks, press/hold/release, death re-press
+src/SystemInput.*     real OS key presses (Windows SendInput / macOS CoreGraphics)
 src/Rules.*           rule data, save/load, key-name parser
 src/RulesPopup.*      the rules editor popup
-.github/workflows/    GitHub Actions build (Windows, macOS, Android)
+.github/workflows/    GitHub Actions build
 ```
 
 ## Build it yourself
 1. Install the Geode CLI and SDK: https://docs.geode-sdk.org/getting-started/
 2. Make sure `GEODE_SDK` points to your Geode SDK folder.
-3. In this folder:
-   ```
-   geode build
-   ```
-   (or `cmake -B build && cmake --build build --config RelWithDebInfo`)
-4. The result is `yourname.percent-clicker.geode`. Drop it into `<Geometry Dash>/geode/mods/` (or use the Geode installer's mod folder) and start the game.
+3. In this folder run `geode build`.
+4. Drop the resulting `.geode` file into `<Geometry Dash>/geode/mods/`.
 
 ## Build without installing anything
-Push this folder to a GitHub repo. The included workflow builds Windows, macOS and Android `.geode` files — download them from the **Actions → Build Output** artifact.
-
-## Before you publish
-- Change `"id"` and `"developer"` in `mod.json` (the id format is `yourname.percent-clicker`) and the name in `LICENSE`.
-
-## Key syntax
-Join keys with `+`: `ctrl+alt+k`, `shift+f5`, `space`. Modifiers: `ctrl shift alt cmd`. Also `a-z 0-9 f1-f12 num0-num9 up down left right enter tab esc backspace delete insert home end pageup pagedown capslock` and `, . / ; ' [ ] \ - = ``.
+Push this folder to a GitHub repo. The workflow builds `.geode` files — download them from **Actions → Build Output**.
 
 ## Notes
-- If the compiler complains about `dispatchKeyboardMSG`, the code already auto-selects the 3 or 4 argument version; if a future Geode changes it again, edit `sendKey` in `src/Runner.cpp`.
-- Injected keys go through the normal key system, so avoid using the same combo as the "Toggle Keybind" setting (F8 by default).
+- **Real keyboard** mode works on Windows and macOS. On macOS you must allow Geometry Dash under Privacy & Security > Accessibility. On other platforms the mod falls back to in-game input.
 - Use it responsibly: automated inputs may not be allowed for leaderboards, challenges or verification runs.
