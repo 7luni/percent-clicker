@@ -8,23 +8,8 @@ on:
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - name: Windows
-            os: windows-latest
-          - name: macOS
-            os: macos-latest
-          - name: Android32
-            os: ubuntu-latest
-            target: Android32
-          - name: Android64
-            os: ubuntu-latest
-            target: Android64
-
-    name: ${{ matrix.config.name }}
-    runs-on: ${{ matrix.config.os }}
+    runs-on: windows-latest
+    name: Windows
 
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +19,6 @@ jobs:
         with:
           sdk: 5.9.0
           combine: true
-          target: ${{ matrix.config.target }}
 
   package:
     name: Package builds
