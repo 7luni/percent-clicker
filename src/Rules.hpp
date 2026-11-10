@@ -18,6 +18,11 @@ namespace pc {
         PracticeOnly = 2,
     };
 
+    enum class SendTarget : int {
+        Game = 0,      // only inside Geometry Dash
+        Keyboard = 1,  // a real keyboard press (Discord etc. can see it)
+    };
+
     struct Rule {
         std::string name = "New rule";
         bool enabled = true;
@@ -28,6 +33,7 @@ namespace pc {
         DeathMode deathMode = DeathMode::Nothing;
         float deathDelayMs = 0.f;     // delay before the death re-press
         PlayMode playMode = PlayMode::Any;
+        SendTarget target = SendTarget::Keyboard;
     };
 
     // All rules (lazy-loaded from the mod's save data).
@@ -42,9 +48,15 @@ namespace pc {
     // Returns "" if the rule is valid, otherwise a human readable problem.
     std::string validateRule(Rule const& rule);
 
+    // Name of a key as used in the Keys field ("ctrl", "k", "f5"...). "" if unknown.
+    std::string keyName(int vk);
+    // Turns held keys into "ctrl+alt+k" (modifiers first).
+    std::string formatKeys(std::vector<int> const& vks);
+
     std::string fmtNum(float value);
     float toFloat(std::string const& text, float fallback);
 
     char const* deathModeName(DeathMode mode);
     char const* playModeName(PlayMode mode);
+    char const* sendTargetName(SendTarget target);
 }
