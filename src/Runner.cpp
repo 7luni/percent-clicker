@@ -1,5 +1,6 @@
 #include "Runner.hpp"
 #include "Rules.hpp"
+#include "SystemInput.hpp"
 
 #include <algorithm>
 
@@ -20,7 +21,12 @@ namespace {
         d->dispatchKeyboardMSG(k, down, false);
     }
 
-    void sendKey(enumKeyCodes key, bool down) {
+    void sendKey(enumKeyCodes key, bool down, pc::SendTarget target) {
+        if (target == pc::SendTarget::Keyboard) {
+            // Real OS-level key press (Windows / macOS). Other apps like Discord see it.
+            if (pc::sendSystemKey(static_cast<int>(key), down)) return;
+            // Not supported on this platform: fall back to in-game input.
+        }
         auto dispatcher = CCDirector::get()->getKeyboardDispatcher();
         if (!dispatcher) return;
         double ts = std::chrono::duration<double>(
@@ -65,26 +71,26 @@ namespace pc {
     void Runner::releaseAll() {
         for (auto it = m_held.rbegin(); it != m_held.rend(); ++it) {
             for (auto kit = it->keys.rbegin(); kit != it->keys.rend(); ++kit) {
-                sendKey(*kit, false);
+                sendKey(*kit, false, it->target);
             }
         }
         m_held.clear();
     }
 
-    void Runner::press(std::string const& keys, float holdMs) {
+    void Runner::press(std::string const& keys, float holdMs, SendTarget target) {
         std::vector<enumKeyCodes> parsed;
         auto bad = parseKeys(keys, parsed);
         if (!bad.empty()) {
             log::warn("Percent Clicker: unknown key \"{}\" in \"{}\"", bad, keys);
             return;
         }
-        for (auto k : parsed) sendKey(k, true);
+        for (auto k : parsed) sendKey(k, true, target);
 
         holdMs = std::clamp(holdMs, 0.f, 10000.f);
         auto hold = std::chrono::duration_cast<Clock::duration>(
             std::chrono::duration<float, std::milli>(holdMs)
         );
-        m_held.push_back({ parsed, Clock::now() + hold });
+        m_held.push_back({ parsed, target, Clock::now() + hold });
 
         if (Mod::get()->getSettingValue<bool>("debug-log")) {
             log::info("Percent Clicker: pressed \"{}\" (hold {} ms)", keys, holdMs);
@@ -95,7 +101,7 @@ namespace pc {
         for (auto it = m_held.begin(); it != m_held.end();) {
             if (now >= it->releaseAt) {
                 for (auto kit = it->keys.rbegin(); kit != it->keys.rend(); ++kit) {
-                    sendKey(*kit, false);
+                    sendKey(*kit, false, it->target);
                 }
                 it = m_held.erase(it);
             } else {
@@ -119,7 +125,7 @@ namespace pc {
                 ++it;
             }
         }
-        for (auto const& p : due) this->press(p.keys, p.holdMs);
+        for (auto const& p : due) this->press(p.keys, p.holdMs, p.target);
     }
 
     void Runner::initStates(PlayLayer* layer) {
@@ -152,7 +158,7 @@ namespace pc {
             auto delay = std::chrono::duration_cast<Clock::duration>(
                 std::chrono::duration<float, std::milli>(std::clamp(r.deathDelayMs, 0.f, 10000.f))
             );
-            m_pending.push_back({ r.keys, r.holdMs, now + delay });
+            m_pending.push_back({ r.keys, r.holdMs, r.target, now + delay });
         }
     }
 
@@ -189,7 +195,7 @@ namespace pc {
             if (!r.enabled || st.done || !modeMatches(r, layer)) continue;
             if (pct + 1e-4f < st.next) continue;
 
-            this->press(r.keys, r.holdMs);
+            this->press(r.keys, r.holdMs, r.target);
 
             if (r.repeatEvery > 0.01f) {
                 do {
