@@ -9,7 +9,7 @@
 	"id": "yourname.percent-clicker",
 	"name": "Percent Clicker",
 	"version": "v1.2.0",
-	"developer": "YourName",
+	"developer": "Lunii",
 	"description": "Press any keybind (or combo like Ctrl+Alt+K) at chosen level percentages, in the game or as a real keyboard press (Discord mute/deafen), and re-press it when you die.",
 	"tags": ["gameplay", "utility", "interface"],
 	"resources": {
