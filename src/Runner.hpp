@@ -4,6 +4,7 @@
 #include <chrono>
 #include <string>
 #include <vector>
+#include "Rules.hpp"
 
 namespace pc {
 
@@ -30,11 +31,13 @@ namespace pc {
 
         struct Held {
             std::vector<cocos2d::enumKeyCodes> keys;
+            SendTarget target;
             Clock::time_point releaseAt;
         };
         struct Pending {
             std::string keys;
             float holdMs;
+            SendTarget target;
             Clock::time_point fireAt;
         };
         struct State {
@@ -42,7 +45,7 @@ namespace pc {
             float next = 0.f;
         };
 
-        void press(std::string const& keys, float holdMs);
+        void press(std::string const& keys, float holdMs, SendTarget target);
         void releaseDue(Clock::time_point now);
         void firePending(Clock::time_point now);
         void initStates(PlayLayer* layer);
