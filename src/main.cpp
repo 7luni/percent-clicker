@@ -66,9 +66,15 @@ class $modify(PCPauseLayer, PauseLayer) {
         if (!Mod::get()->getSettingValue<bool>("show-pause-button")) return;
 
         CCNode* icon = nullptr;
-        if (auto spr = CCSprite::create("pause-icon.png"_spr)) {
-            icon = spr;
-        } else {
+        // Only use the icon if Geode really packed it (avoids the pink/black
+        // "missing texture" squares).
+        if (CCSpriteFrameCache::get()->spriteFrameByName("pause-icon.png"_spr)) {
+            if (auto spr = CCSprite::createWithSpriteFrameName("pause-icon.png"_spr)) {
+                if (spr->getContentWidth() > 0.f) spr->setScale(48.f / spr->getContentWidth());
+                icon = spr;
+            }
+        }
+        if (!icon) {
             auto fallback = ButtonSprite::create("%");
             fallback->setScale(.7f);
             icon = fallback;
