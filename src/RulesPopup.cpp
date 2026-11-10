@@ -1,5 +1,6 @@
 #include "RulesPopup.hpp"
 #include "Runner.hpp"
+#include "SystemInput.hpp"
 
 using namespace geode::prelude;
 
@@ -71,7 +72,8 @@ bool RulesPopup::init() {
     m_nameInput = addInput(-80.f, 62.f, 150.f, "Rule name", "", 24);
 
     addLabel("Keys", -205.f, 28.f, .5f);
-    m_keysInput = addInput(-80.f, 28.f, 150.f, "ctrl+alt+k", "", 40);
+    m_keysInput = addInput(-108.f, 28.f, 96.f, "ctrl+alt+k", "", 40);
+    addButton("Record", .45f, { -28.f, 28.f }, menu_selector(RulesPopup::onRecord), &m_recordSpr);
 
     addLabel("At % (0-100)", -205.f, -6.f, .45f);
     m_percentInput = addInput(-80.f, -6.f, 150.f, "50", numeric, 6);
@@ -92,18 +94,17 @@ bool RulesPopup::init() {
     addLabel("Re-press delay (ms)", 20.f, -6.f, .36f);
     m_deathDelayInput = addInput(165.f, -6.f, 80.f, "0", numeric, 6);
 
-    auto hint1 = CCLabelBMFont::create("Combos: ctrl+alt+k, shift+f5", "chatFont.fnt");
+    addLabel("Send to", 20.f, -40.f, .5f);
+    addButton("Real keyboard", .5f, { 160.f, -40.f }, menu_selector(RulesPopup::onTarget), &m_targetSpr);
+
+    auto hint1 = CCLabelBMFont::create("Record: hold all keys at once", "chatFont.fnt");
     hint1->setScale(.55f);
     hint1->setColor({ 170, 180, 200 });
-    m_mainLayer->addChildAtPosition(hint1, Anchor::Center, { 120.f, -44.f });
-    auto hint2 = CCLabelBMFont::create("Hold 0 = quick tap. Repeat 0 = once.", "chatFont.fnt");
+    m_mainLayer->addChildAtPosition(hint1, Anchor::Center, { 120.f, -68.f });
+    auto hint2 = CCLabelBMFont::create("Real keyboard = Discord can see it", "chatFont.fnt");
     hint2->setScale(.55f);
     hint2->setColor({ 170, 180, 200 });
-    m_mainLayer->addChildAtPosition(hint2, Anchor::Center, { 120.f, -60.f });
-    auto hint3 = CCLabelBMFont::create("Press Help for every key name.", "chatFont.fnt");
-    hint3->setScale(.55f);
-    hint3->setColor({ 170, 180, 200 });
-    m_mainLayer->addChildAtPosition(hint3, Anchor::Center, { 120.f, -76.f });
+    m_mainLayer->addChildAtPosition(hint2, Anchor::Center, { 120.f, -84.f });
 
     // ---------- bottom buttons ----------
     addButton("Cancel", .7f, { -95.f, -118.f }, menu_selector(RulesPopup::onCancel), nullptr);
@@ -115,6 +116,7 @@ bool RulesPopup::init() {
 }
 
 void RulesPopup::readCurrent() {
+    if (m_recording) this->stopRecording(true);
     if (m_rules.empty()) return;
     auto& r = m_rules[m_index];
     r.name = m_nameInput->getString();
@@ -138,6 +140,7 @@ void RulesPopup::writeCurrent() {
     m_enabledToggle->toggle(r.enabled);
     m_playModeSpr->setString(pc::playModeName(r.playMode));
     m_deathModeSpr->setString(pc::deathModeName(r.deathMode));
+    m_targetSpr->setString(pc::sendTargetName(r.target));
     auto page = fmt::format("Rule {}/{}", m_index + 1, m_rules.size());
     m_pageLabel->setString(page.c_str());
 }
@@ -197,6 +200,81 @@ void RulesPopup::onDeathMode(CCObject*) {
     m_deathModeSpr->setString(pc::deathModeName(r.deathMode));
 }
 
+void RulesPopup::startRecording() {
+    std::vector<int> down;
+    if (!pc::pollPressedKeys(down)) {
+        FLAlertLayer::create(
+            "Not available",
+            "Key recording isn't supported on this platform.\nType the keys instead, e.g. <cg>ctrl+alt+k</c>.",
+            "OK"
+        )->show();
+        return;
+    }
+    m_recording = true;
+    m_seen.clear();
+    m_ignore.clear();
+    // Keys already held when recording starts are ignored until released.
+    for (int k : down) {
+        if (!pc::keyName(k).empty()) m_ignore.insert(k);
+    }
+    m_keysBeforeRecord = m_keysInput->getString();
+    m_recordSpr->setString("Press keys...");
+    this->schedule(schedule_selector(RulesPopup::onPoll));
+}
+
+void RulesPopup::stopRecording(bool cancel) {
+    if (!m_recording) return;
+    m_recording = false;
+    this->unschedule(schedule_selector(RulesPopup::onPoll));
+    m_recordSpr->setString("Record");
+    if (cancel) m_keysInput->setString(m_keysBeforeRecord);
+}
+
+void RulesPopup::onPoll(float) {
+    if (!m_recording) return;
+
+    std::vector<int> down;
+    pc::pollPressedKeys(down);
+
+    std::set<int> now;
+    for (int k : down) {
+        if (!pc::keyName(k).empty()) now.insert(k);
+    }
+
+    // forget ignored keys once they were released
+    for (auto it = m_ignore.begin(); it != m_ignore.end();) {
+        if (!now.count(*it)) it = m_ignore.erase(it);
+        else ++it;
+    }
+
+    bool anyFresh = false;
+    for (int k : now) {
+        if (m_ignore.count(k)) continue;
+        anyFresh = true;
+        m_seen.insert(k);
+    }
+
+    if (!m_seen.empty()) {
+        std::vector<int> v(m_seen.begin(), m_seen.end());
+        m_keysInput->setString(pc::formatKeys(v));
+    }
+
+    // everything released after pressing something -> done
+    if (!m_seen.empty() && !anyFresh) this->stopRecording(false);
+}
+
+void RulesPopup::onRecord(CCObject*) {
+    if (m_recording) this->stopRecording(true);
+    else this->startRecording();
+}
+
+void RulesPopup::onTarget(CCObject*) {
+    this->readCurrent();
+    auto& r = m_rules[m_index];
+    r.target = r.target == pc::SendTarget::Game ? pc::SendTarget::Keyboard : pc::SendTarget::Game;
+    m_targetSpr->setString(pc::sendTargetName(r.target));
+}
+
 void RulesPopup::onSave(CCObject*) {
     this->readCurrent();
 
@@ -225,17 +303,13 @@ void RulesPopup::onCancel(CCObject*) {
 void RulesPopup::onHelp(CCObject*) {
     FLAlertLayer::create(
         "Keys & combos",
-        "Join keys with <cy>+</c> to press them together, e.g. <cg>ctrl+alt+k</c>.\n"
-        "<cy>Modifiers:</c> ctrl, shift, alt, cmd\n"
-        "<cy>Letters/digits:</c> a-z, 0-9\n"
-        "<cy>Special:</c> space (or jump), enter, tab, esc, backspace, delete, insert, home, end, pageup, pagedown, capslock\n"
-        "<cy>Arrows:</c> up, down, left, right\n"
-        "<cy>Function:</c> f1 - f12\n"
-        "<cy>Numpad:</c> num0 - num9\n"
-        "<cy>Symbols:</c> , . / ; ' [ ] \\ - = `\n\n"
-        "<cy>Hold</c> = how long the keys stay down (0 = quick tap).\n"
-        "<cy>Repeat</c> = press again every X% after the first press.\n"
-        "<cy>When I die</c> = also press when you die, or when the attempt restarts.",
+        "Click <cy>Record</c>, hold your keys together, let go\n"
+        "Or type them: <cg>ctrl+alt+k</c>, joined with <cy>+</c>\n"
+        "a-z, 0-9, f1-f12, num0-num9, arrows\n"
+        "space, enter, tab, esc, ctrl, shift, alt\n"
+        "<cy>Hold</c> = ms keys stay down (0 = tap)\n"
+        "<cy>Repeat</c> = press again every X%\n"
+        "<cy>Send to</c> = Game or real keyboard",
         "OK"
     )->show();
 }
