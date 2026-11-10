@@ -9,7 +9,7 @@ else()
     set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
 endif()
 
-project(PercentClicker VERSION 1.0.0)
+project(PercentClicker VERSION 1.2.0)
 
 file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
 
@@ -24,3 +24,11 @@ endif()
 add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
 setup_geode_mod(${PROJECT_NAME})
+
+if (WIN32)
+    target_link_libraries(${PROJECT_NAME} user32)
+endif()
+
+if (APPLE AND NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "iOS")
+    target_link_libraries(${PROJECT_NAME} "-framework ApplicationServices")
+endif()
