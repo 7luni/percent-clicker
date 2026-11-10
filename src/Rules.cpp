@@ -117,7 +117,8 @@ namespace pc {
                 out += sanitize(r.name) + "|" + (r.enabled ? "1" : "0") + "|" + sanitize(r.keys) + "|" +
                     fmtNum(r.percent) + "|" + fmtNum(r.holdMs) + "|" + fmtNum(r.repeatEvery) + "|" +
                     std::to_string(static_cast<int>(r.deathMode)) + "|" + fmtNum(r.deathDelayMs) + "|" +
-                    std::to_string(static_cast<int>(r.playMode)) + "\n";
+                    std::to_string(static_cast<int>(r.playMode)) + "|" +
+                    std::to_string(static_cast<int>(r.target)) + "\n";
             }
             return out;
         }
@@ -140,10 +141,72 @@ namespace pc {
                 r.deathDelayMs = toFloat(f[7], 0.f);
                 int pm = static_cast<int>(toFloat(f[8], 0.f));
                 r.playMode = static_cast<PlayMode>(std::clamp(pm, 0, 2));
+                // Rules saved by v1.0.0 have no target field: keep them game-only.
+                int tg = f.size() >= 10 ? static_cast<int>(toFloat(f[9], 0.f)) : 0;
+                r.target = static_cast<SendTarget>(std::clamp(tg, 0, 1));
                 out.push_back(std::move(r));
             }
             return out;
         }
+    }
+
+    std::string keyName(int vk) {
+        if (vk >= 65 && vk <= 90) return std::string(1, static_cast<char>('a' + (vk - 65)));
+        if (vk >= 48 && vk <= 57) return std::string(1, static_cast<char>('0' + (vk - 48)));
+        if (vk >= 96 && vk <= 105) return "num" + std::to_string(vk - 96);
+        if (vk >= 112 && vk <= 123) return "f" + std::to_string(vk - 111);
+        switch (vk) {
+            case 17: return "ctrl";
+            case 16: return "shift";
+            case 18: return "alt";
+            case 91: return "cmd";
+            case 32: return "space";
+            case 13: return "enter";
+            case 9: return "tab";
+            case 27: return "esc";
+            case 8: return "backspace";
+            case 46: return "delete";
+            case 45: return "insert";
+            case 36: return "home";
+            case 35: return "end";
+            case 33: return "pageup";
+            case 34: return "pagedown";
+            case 37: return "left";
+            case 38: return "up";
+            case 39: return "right";
+            case 40: return "down";
+            case 20: return "capslock";
+            case 186: return ";";
+            case 187: return "=";
+            case 188: return ",";
+            case 189: return "-";
+            case 190: return ".";
+            case 191: return "/";
+            case 192: return "`";
+            case 219: return "[";
+            case 220: return "\\";
+            case 221: return "]";
+            case 222: return "'";
+            default: return "";
+        }
+    }
+
+    std::string formatKeys(std::vector<int> const& vks) {
+        std::vector<int> ordered;
+        for (int m : { 17, 18, 16, 91 }) {
+            if (std::find(vks.begin(), vks.end(), m) != vks.end()) ordered.push_back(m);
+        }
+        for (int k : vks) {
+            if (!isModifier(k)) ordered.push_back(k);
+        }
+        std::string out;
+        for (int k : ordered) {
+            auto name = keyName(k);
+            if (name.empty()) continue;
+            if (!out.empty()) out += "+";
+            out += name;
+        }
+        return out;
     }
 
     float toFloat(std::string const& text, float fallback) {
@@ -231,6 +294,10 @@ namespace pc {
             case DeathMode::OnRespawn: return "On respawn";
             default: return "Nothing";
         }
+    }
+
+    char const* sendTargetName(SendTarget t) {
+        return t == SendTarget::Keyboard ? "Real keyboard" : "Game only";
     }
 
     char const* playModeName(PlayMode m) {
