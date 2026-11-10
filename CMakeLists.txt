@@ -15,6 +15,14 @@ file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
+# SystemInput.cpp includes the operating system's headers (Windows.h / Apple's
+# ApplicationServices). Those clash with Geode's names (e.g. "CommentType") if
+# they end up in the same "unity build" file, so compile it on its own.
+set_source_files_properties(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/SystemInput.cpp
+    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
+)
+
 if (NOT DEFINED ENV{GEODE_SDK})
     message(FATAL_ERROR "Unable to find Geode SDK! Please define GEODE_SDK environment variable to point to Geode")
 else()
